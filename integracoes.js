@@ -137,9 +137,7 @@ const genericDownloadTypes = new Set([
 ]);
 
 async function confirmMp3(audio) {
-  const folder = await mkdtemp(
-    join(tmpdir(), 'zumy-audio-')
-  );
+  const folder = await mkdtemp(join(tmpdir(), 'zumy-audio-'));
 
   try {
     const file = join(folder, 'track.mp3');
@@ -197,8 +195,7 @@ async function readAudio(
       'O endereço precisa fornecer um arquivo ' +
       (allowVideo ? 'MP3, M4A ou MP4' : 'MP3 ou M4A') +
       '. Tipo recebido: ' +
-      (contentType.slice(0, 80) || 'não informado') +
-      '.'
+      (contentType.slice(0, 80) || 'não informado') + '.'
     );
   }
 
@@ -307,9 +304,7 @@ async function downloadJamendo(url) {
       );
     }
 
-    return readAudio(response, {
-      allowGenericMp3: true,
-    });
+    return readAudio(response, { allowGenericMp3: true });
   }
 
   throw new Error(
@@ -318,9 +313,7 @@ async function downloadJamendo(url) {
 }
 
 const archiveOrigin = 'https://archive.org';
-
-const archiveItem =
-  /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,149}$/;
+const archiveItem = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,149}$/;
 
 const archiveLicensePath =
   /^\/(?:licenses\/(?:by|by-sa)\/(?:1\.0|2\.0|2\.5|3\.0|4\.0)(?:\/[a-z-]+)?|publicdomain\/zero\/1\.0)\/?$/i;
@@ -407,9 +400,7 @@ async function downloadArchive(url, video) {
       await response.body?.cancel();
 
       if (!location) {
-        throw new Error(
-          'Redirecionamento do Archive sem endereço.'
-        );
+        throw new Error('Redirecionamento do Archive sem endereço.');
       }
 
       url = new URL(location, next).href;
@@ -420,8 +411,7 @@ async function downloadArchive(url, video) {
       await response.body?.cancel();
 
       throw new Error(
-        'Download do Archive retornou HTTP ' +
-        response.status
+        'Download do Archive retornou HTTP ' + response.status
       );
     }
 
@@ -441,17 +431,10 @@ async function downloadArchive(url, video) {
     return media;
   }
 
-  throw new Error(
-    'O Archive retornou muitos redirecionamentos.'
-  );
+  throw new Error('O Archive retornou muitos redirecionamentos.');
 }
 
-function chooseArchiveFile(
-  record,
-  extension,
-  query,
-  strictTitle
-) {
+function chooseArchiveFile(record, extension, query, strictTitle) {
   const files = (
     Array.isArray(record.files) ? record.files : []
   ).filter(file => {
@@ -488,38 +471,14 @@ function chooseArchiveFile(
 }
 
 const localTracks = [
-  [
-    'opera_o_anti_z_gavi_o.mp3',
-    ['opera', 'opera o anti z gavi o'],
-  ],
-  [
-    'estou_apaixonado.m4a',
-    ['estou apaixonado', 'daniel', 'estoy enamorado'],
-  ],
-  [
-    'interrogacoes.m4a',
-    ['interrogacoes', 'all star brasil'],
-  ],
-  [
-    'AUD-20261016-WA0254.mp3',
-    ['produção dj tk', 'wa0254', 'aud 20261016 wa0254'],
-  ],
-  [
-    'viu_mulher_mudou_o_tom.mp3',
-    ['viu mulher mudou o tom'],
-  ],
-  [
-    'minha_princesa_complicada.mp3',
-    ['minha princesa complicada'],
-  ],
-  [
-    'lunes_que_sabe_a_viernes.mp3',
-    ['lunes que sabe a viernes'],
-  ],
-  [
-    'la_diabla_mexicana.mp3',
-    ['la diabla mexicana'],
-  ],
+  ['opera_o_anti_z_gavi_o.mp3', ['opera', 'opera o anti z gavi o']],
+  ['estou_apaixonado.m4a', ['estou apaixonado', 'daniel', 'estoy enamorado']],
+  ['interrogacoes.m4a', ['interrogacoes', 'all star brasil']],
+  ['AUD-20261016-WA0254.mp3', ['produção dj tk', 'wa0254', 'aud 20261016 wa0254']],
+  ['viu_mulher_mudou_o_tom.mp3', ['viu mulher mudou o tom']],
+  ['minha_princesa_complicada.mp3', ['minha princesa complicada']],
+  ['lunes_que_sabe_a_viernes.mp3', ['lunes que sabe a viernes']],
+  ['la_diabla_mexicana.mp3', ['la diabla mexicana']],
 ];
 
 const trackName = value => value
@@ -534,10 +493,7 @@ const trackName = value => value
 
 const fileByName = new Map(
   localTracks.flatMap(([file, aliases]) =>
-    [file, ...aliases].map(alias => [
-      trackName(alias),
-      file,
-    ])
+    [file, ...aliases].map(alias => [trackName(alias), file])
   )
 );
 
@@ -767,39 +723,24 @@ export function createIntegrations({
     }
   }
 
-  async function playArchive(
-    { arg, reply, send },
-    requestedId
-  ) {
+  async function playArchive({ arg, reply, send }, requestedId) {
     const [, extension, term] =
-      /^(?:(mp3|mp4)\s+)?([\s\S]+)$/i.exec(
-        arg.trim()
-      ) || [];
+      /^(?:(mp3|mp4)\s+)?([\s\S]+)$/i.exec(arg.trim()) || [];
 
     const format = extension?.toLowerCase() || 'mp3';
     const id = requestedId || (term && archiveLink(term));
 
-    const apenasArtista =
-      /^artista(?:\s|$)/i.test(term || '');
-
-    const entrada = (term || '').replace(
-      /^artista(?:\s+|$)/i,
-      ''
-    );
+    const apenasArtista = /^artista(?:\s|$)/i.test(term || '');
+    const entrada = (term || '').replace(/^artista(?:\s+|$)/i, '');
 
     const limpar = value => value
       .replace(/[^\p{L}\p{N} ]/gu, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
-    const [primeira, segunda] = entrada
-      .split('|', 2)
-      .map(limpar);
-
+    const [primeira, segunda] = entrada.split('|', 2).map(limpar);
     const titulo = apenasArtista ? '' : primeira;
-    const artista = apenasArtista
-      ? primeira
-      : segunda || '';
+    const artista = apenasArtista ? primeira : segunda || '';
 
     if (
       !id &&
@@ -820,26 +761,18 @@ export function createIntegrations({
       );
 
     const getItem = identifier => requestJson(
-      archiveOrigin +
-      '/metadata/' +
-      encodeURIComponent(identifier)
+      archiveOrigin + '/metadata/' + encodeURIComponent(identifier)
     );
 
     try {
       let ids = id ? [id] : [];
 
       if (!id) {
-        const search = new URL(
-          '/advancedsearch.php',
-          archiveOrigin
-        );
+        const search = new URL('/advancedsearch.php', archiveOrigin);
 
         const filtro = artista
-          ? (
-            titulo
-              ? ' AND title:"' + titulo + '"'
-              : ''
-          ) + ' AND creator:"' + artista + '"'
+          ? (titulo ? ' AND title:"' + titulo + '"' : '') +
+            ' AND creator:"' + artista + '"'
           : ' AND (title:"' + titulo +
             '" OR creator:"' + titulo + '")';
 
@@ -847,8 +780,7 @@ export function createIntegrations({
           'q',
           'mediatype:' +
           (format === 'mp4' ? 'movies' : 'audio') +
-          filtro +
-          ' AND licenseurl:*'
+          filtro + ' AND licenseurl:*'
         );
 
         search.searchParams.set('fl[]', 'identifier');
@@ -862,9 +794,7 @@ export function createIntegrations({
           .filter(value => archiveItem.test(value || ''));
       }
 
-      const results = await Promise.allSettled(
-        ids.map(getItem)
-      );
+      const results = await Promise.allSettled(ids.map(getItem));
 
       let lastError = results.find(
         result => result.status === 'rejected'
@@ -908,33 +838,24 @@ export function createIntegrations({
         if (!file) continue;
 
         const page =
-          archiveOrigin +
-          '/details/' +
-          encodeURIComponent(ids[i]);
+          archiveOrigin + '/details/' + encodeURIComponent(ids[i]);
 
         const raw =
-          archiveOrigin +
-          '/download/' +
-          encodeURIComponent(ids[i]) +
-          '/' +
+          archiveOrigin + '/download/' +
+          encodeURIComponent(ids[i]) + '/' +
           encodeURIComponent(file.name);
 
         let media;
 
         try {
-          media = await downloadArchive(
-            raw,
-            format === 'mp4'
-          );
+          media = await downloadArchive(raw, format === 'mp4');
         } catch (error) {
           lastError = error;
           continue;
         }
 
         const title = String(
-          file.title ||
-          record.metadata.title ||
-          file.name
+          file.title || record.metadata.title || file.name
         ).slice(0, 180);
 
         const credit =
@@ -944,10 +865,7 @@ export function createIntegrations({
           '\nLicença: ' + license;
 
         if (media.video) {
-          return await send({
-            ...media,
-            caption: credit,
-          });
+          return await send({ ...media, caption: credit });
         }
 
         await reply(credit);
@@ -966,8 +884,7 @@ export function createIntegrations({
       }
 
       return reply(
-        'Não encontrei um ' +
-        format.toUpperCase() +
+        'Não encontrei um ' + format.toUpperCase() +
         ' de até 12 MB com licença de compartilhamento confirmada no Internet Archive.' +
         (
           id
@@ -1010,11 +927,10 @@ export function createIntegrations({
     youtubeActive.add(jid);
 
     let folder;
+    let etapa = 'preparação';
 
     try {
-      folder = await mkdtemp(
-        join(tmpdir(), 'zumy-youtube-')
-      );
+      folder = await mkdtemp(join(tmpdir(), 'zumy-youtube-'));
 
       const common = [
         '--ignore-config',
@@ -1026,8 +942,7 @@ export function createIntegrations({
         '--fragment-retries', '1',
       ];
 
-      const cookiePath =
-        env.YOUTUBE_COOKIES_FILE?.trim();
+      const cookiePath = env.YOUTUBE_COOKIES_FILE?.trim();
 
       if (cookiePath) {
         try {
@@ -1045,9 +960,7 @@ export function createIntegrations({
             await readFile(cookiePath, 'utf8')
           ).replace(/^\uFEFF/, '');
 
-          const header = content
-            .split(/\r?\n/)[0]
-            .trim();
+          const header = content.split(/\r?\n/)[0].trim();
 
           if (
             !/^# (?:Netscape HTTP Cookie File|HTTP Cookie File)$/.test(
@@ -1057,16 +970,11 @@ export function createIntegrations({
             throw Error('Formato');
           }
 
-          const privateCopy = join(
-            folder,
-            'cookies.txt'
-          );
+          const privateCopy = join(folder, 'cookies.txt');
 
-          await writeFile(
-            privateCopy,
-            content,
-            { mode: 0o600 }
-          );
+          await writeFile(privateCopy, content, {
+            mode: 0o600,
+          });
 
           common.push('--cookies', privateCopy);
         } catch {
@@ -1104,15 +1012,13 @@ export function createIntegrations({
       }
 
       const run = (args, timeout) =>
-        ffmpeg(
-          'yt-dlp',
-          [...common, ...args],
-          {
-            timeout,
-            killSignal: 'SIGKILL',
-            maxBuffer: 4 * 1024 * 1024,
-          }
-        );
+        ffmpeg('yt-dlp', [...common, ...args], {
+          timeout,
+          killSignal: 'SIGKILL',
+          maxBuffer: 4 * 1024 * 1024,
+        });
+
+      etapa = 'pesquisa';
 
       await reply('🔎 Buscando no YouTube…');
 
@@ -1130,9 +1036,7 @@ export function createIntegrations({
         : result;
 
       if (!/^[A-Za-z0-9_-]{11}$/.test(video?.id || '')) {
-        return await reply(
-          'Não encontrei esse vídeo.'
-        );
+        return await reply('Não encontrei esse vídeo.');
       }
 
       if (
@@ -1148,8 +1052,9 @@ export function createIntegrations({
       }
 
       const url =
-        'https://www.youtube.com/watch?v=' +
-        video.id;
+        'https://www.youtube.com/watch?v=' + video.id;
+
+      etapa = 'download';
 
       await run([
         '--extract-audio',
@@ -1162,6 +1067,8 @@ export function createIntegrations({
         '--',
         url,
       ], 120000);
+
+      etapa = 'verificação';
 
       const path = join(folder, 'musica.mp3');
       const info = await stat(path);
@@ -1193,9 +1100,7 @@ export function createIntegrations({
       const duracao =
         Math.floor(video.duration / 60) +
         ':' +
-        String(
-          Math.floor(video.duration % 60)
-        ).padStart(2, '0');
+        String(Math.floor(video.duration % 60)).padStart(2, '0');
 
       const caption =
         '🎶 *ZUMY • MÚSICA ENCONTRADA*\n\n' +
@@ -1204,13 +1109,14 @@ export function createIntegrations({
         '\n⏱️ ' + duracao +
         '\n🔗 ' + url;
 
+      etapa = 'envio';
+
       let capaEnviada = false;
 
       try {
         const response = await fetch(
           'https://i.ytimg.com/vi/' +
-          video.id +
-          '/hqdefault.jpg',
+          video.id + '/hqdefault.jpg',
           {
             redirect: 'error',
             signal: AbortSignal.timeout(10000),
@@ -1226,14 +1132,9 @@ export function createIntegrations({
         if (
           !response.ok ||
           !response.body ||
-          ![
-            'image/jpeg',
-            'image/png',
-            'image/webp',
-          ].includes(type) ||
-          Number(
-            response.headers.get('content-length')
-          ) > 2 * 1024 * 1024
+          !['image/jpeg', 'image/png', 'image/webp'].includes(type) ||
+          Number(response.headers.get('content-length')) >
+          2 * 1024 * 1024
         ) {
           await response.body?.cancel();
           throw Error('Capa indisponível');
@@ -1252,9 +1153,7 @@ export function createIntegrations({
           chunks.push(chunk);
         }
 
-        if (!length) {
-          throw Error('Capa vazia');
-        }
+        if (!length) throw Error('Capa vazia');
 
         await send({
           image: Buffer.concat(chunks, length),
@@ -1271,8 +1170,7 @@ export function createIntegrations({
       }
 
       const fileName = (
-        titulo
-          .replace(/[\\/:*?"<>|\u0000-\u001F]/g, '')
+        titulo.replace(/[\\/:*?"<>|\u0000-\u001F]/g, '')
           .slice(0, 100) ||
         'Produção DJ TK'
       ) + '.mp3';
@@ -1284,26 +1182,87 @@ export function createIntegrations({
         ptt: false,
       });
     } catch (error) {
-      // Não registrar stderr: pode conter dados de sessão.
-      logger.warn(
-        {
-          code: typeof error.code === 'number'
-            ? error.code
-            : undefined,
-          signal: error.signal,
-          name: error.name,
-        },
-        'Falha no play do YouTube'
-      );
+      const detalhe = String(error.stderr || '').toLowerCase();
 
-      if (error.code === 'ENOENT') {
-        return await reply(
-          'Não encontrei o yt-dlp ou a saída MP3. Confira o build e o Dockerfile.'
-        );
+      let codigo = 'PLAY-01';
+      let motivo =
+        'Falha ainda não identificada. Confira as ferramentas e a disponibilidade da faixa.';
+
+      if (etapa === 'envio') {
+        codigo = 'PLAY-11';
+        motivo =
+          'O MP3 foi preparado, mas o envio ao WhatsApp falhou. Confira a conexão do bot.';
+      } else if (error.code === 'ENOENT') {
+        codigo = etapa === 'verificação'
+          ? 'PLAY-12'
+          : 'PLAY-13';
+
+        motivo = etapa === 'verificação'
+          ? 'O downloader terminou sem criar musica.mp3.'
+          : 'O executável yt-dlp não foi encontrado. Confira o Dockerfile e o ambiente Docker.';
+      } else if (
+        error.killed ||
+        error.signal === 'SIGKILL'
+      ) {
+        codigo = 'PLAY-02';
+        motivo =
+          'A pesquisa ou download ultrapassou o tempo limite.';
+      } else if (
+        /sign in|confirm you.re not a bot|login required/.test(detalhe)
+      ) {
+        codigo = 'PLAY-03';
+        motivo =
+          'O YouTube exigiu autenticação ou recusou o acesso do servidor.';
+      } else if (
+        /cookies.*(expired|invalid)|failed to load cookies|does not look like a netscape/.test(detalhe)
+      ) {
+        codigo = 'PLAY-04';
+        motivo =
+          'O downloader recusou o arquivo de cookies.';
+      } else if (
+        /ffmpeg.*not found|ffprobe.*not found/.test(detalhe)
+      ) {
+        codigo = 'PLAY-05';
+        motivo =
+          'FFmpeg ou FFprobe não foi encontrado no servidor.';
+      } else if (
+        /requested format.*not available|no video formats/.test(detalhe)
+      ) {
+        codigo = 'PLAY-06';
+        motivo =
+          'O YouTube não disponibilizou um formato para download.';
+      } else if (
+        /unsupported url|no such option|unrecognized arguments/.test(detalhe)
+      ) {
+        codigo = 'PLAY-09';
+        motivo =
+          'O downloader recusou o link ou uma opção configurada.';
+      } else if (
+        /javascript|js runtime|challenge|ejs/.test(detalhe)
+      ) {
+        codigo = 'PLAY-07';
+        motivo =
+          'Falhou o processamento JavaScript exigido pelo YouTube.';
+      } else if (
+        /http error 403|http error 429|too many requests/.test(detalhe)
+      ) {
+        codigo = 'PLAY-08';
+        motivo =
+          'O servidor de mídia recusou ou limitou o acesso.';
+      } else if (error.name === 'SyntaxError') {
+        codigo = 'PLAY-10';
+        motivo =
+          'A pesquisa não retornou dados válidos.';
       }
 
+      // Nunca registra stderr, cookies ou URLs privadas.
+      logger.warn(
+        { codigo, etapa, name: error.name },
+        'Diagnóstico do play'
+      );
+
       return await reply(
-        'O download ou envio não foi concluído. Confira a conexão do WhatsApp. Se ela estiver ativa, o YouTube pode ter recusado o acesso ou a sessão pode ter expirado.'
+        '❌ ' + codigo + ' • ' + etapa + '\n' + motivo
       );
     } finally {
       try {
@@ -1329,9 +1288,7 @@ export function createIntegrations({
     try {
       url = new URL(arg);
     } catch {
-      return reply(
-        'Link do Apple Music inválido.'
-      );
+      return reply('Link do Apple Music inválido.');
     }
 
     if (
@@ -1341,25 +1298,17 @@ export function createIntegrations({
       url.password ||
       url.port
     ) {
-      return reply(
-        'Use um link HTTPS de music.apple.com.'
-      );
+      return reply('Use um link HTTPS de music.apple.com.');
     }
 
-    const parts = url.pathname
-      .split('/')
-      .filter(Boolean);
+    const parts = url.pathname.split('/').filter(Boolean);
 
     const country = /^[a-z]{2}$/i.test(parts[0] || '')
       ? parts[0].toUpperCase()
       : 'BR';
 
     const id = url.searchParams.get('i') ||
-      (
-        parts[1] === 'song'
-          ? parts.at(-1)
-          : ''
-      );
+      (parts[1] === 'song' ? parts.at(-1) : '');
 
     if (!/^\d{1,20}$/.test(id || '')) {
       return reply(
@@ -1381,9 +1330,7 @@ export function createIntegrations({
       );
 
       song = (
-        Array.isArray(data.results)
-          ? data.results
-          : []
+        Array.isArray(data.results) ? data.results : []
       ).find(item =>
         item.kind === 'song' &&
         String(item.trackId) === id &&
@@ -1420,8 +1367,7 @@ export function createIntegrations({
     await reply(
       '🍎 Identificada: ' +
       song.trackName.slice(0, 150) +
-      ' — ' +
-      song.artistName.slice(0, 100) +
+      ' — ' + song.artistName.slice(0, 100) +
       '\n🔎 Vou procurar essa faixa no YouTube. O resultado pode ser outra gravação.'
     );
 
@@ -1442,18 +1388,11 @@ export function createIntegrations({
       try {
         url = new URL(arg);
       } catch {
-        return reply(
-          'Link inválido. Confira o endereço.'
-        );
+        return reply('Link inválido. Confira o endereço.');
       }
 
       if (url.hostname === 'music.apple.com') {
-        return playApple({
-          arg,
-          reply,
-          send,
-          jid,
-        });
+        return playApple({ arg, reply, send, jid });
       }
     }
 
@@ -1469,10 +1408,7 @@ export function createIntegrations({
 
     if (/^(yt|youtube)(?:\s|$)/i.test(arg)) {
       return playYoutube({
-        arg: arg.replace(
-          /^(yt|youtube)\s*/i,
-          ''
-        ),
+        arg: arg.replace(/^(yt|youtube)\s*/i, ''),
         reply,
         send,
         jid,
@@ -1491,10 +1427,7 @@ export function createIntegrations({
     const localFile = fileByName.get(name);
 
     if (localFile) {
-      return playLocal(
-        { reply, send },
-        localFile
-      );
+      return playLocal({ reply, send }, localFile);
     }
 
     const audiusLink =
@@ -1532,10 +1465,7 @@ export function createIntegrations({
     const item = archiveLink(arg);
 
     if (item) {
-      return playArchive(
-        { arg, reply, send },
-        item
-      );
+      return playArchive({ arg, reply, send }, item);
     }
 
     if (/^https:\/\//i.test(arg)) {
@@ -1548,12 +1478,7 @@ export function createIntegrations({
         'music.youtube.com',
         'youtu.be',
       ].includes(url.hostname)) {
-        return playYoutube({
-          arg,
-          reply,
-          send,
-          jid,
-        });
+        return playYoutube({ arg, reply, send, jid });
       }
     }
 
@@ -1566,12 +1491,7 @@ export function createIntegrations({
         );
       }
 
-      return playYoutube({
-        arg,
-        reply,
-        send,
-        jid,
-      });
+      return playYoutube({ arg, reply, send, jid });
     }
 
     const approvedOrigin =
@@ -1600,8 +1520,7 @@ export function createIntegrations({
 
         return reply(
           'O servidor de áudio retornou HTTP ' +
-          response.status +
-          '.'
+          response.status + '.'
         );
       }
 
@@ -1617,11 +1536,7 @@ export function createIntegrations({
         'Falha ao enviar áudio'
       );
 
-      if (
-        /^(O endereço|O áudio|O arquivo)/.test(
-          error.message
-        )
-      ) {
+      if (/^(O endereço|O áudio|O arquivo)/.test(error.message)) {
         return reply(error.message);
       }
 
@@ -1658,12 +1573,9 @@ export function createIntegrations({
         'https://itunes.apple.com/search?' + query
       );
 
-      const songs = (result.results || []).filter(
-        song =>
-          song.trackName &&
-          /^https:\/\/music\.apple\.com\//.test(
-            song.trackViewUrl
-          )
+      const songs = (result.results || []).filter(song =>
+        song.trackName &&
+        /^https:\/\/music\.apple\.com\//.test(song.trackViewUrl)
       );
 
       if (!songs.length) {
@@ -1696,9 +1608,7 @@ export function createIntegrations({
   let iaLiberadaEm = 0;
 
   async function ai({ arg, quotedText, reply }, command) {
-    const input = String(
-      arg || quotedText || ''
-    ).trim();
+    const input = String(arg || quotedText || '').trim();
 
     if (!input) {
       return reply(
@@ -1708,9 +1618,7 @@ export function createIntegrations({
     }
 
     if (input.length > 6000) {
-      return reply(
-        'Envie até 6.000 caracteres por vez.'
-      );
+      return reply('Envie até 6.000 caracteres por vez.');
     }
 
     const key = env.GEMINI_API_KEY?.trim();
@@ -1727,17 +1635,13 @@ export function createIntegrations({
     ).replace(/^models\//, '');
 
     if (!/^[a-zA-Z0-9._-]+$/.test(model)) {
-      return reply(
-        'Confira GEMINI_MODEL no Render.'
-      );
+      return reply('Confira GEMINI_MODEL no Render.');
     }
 
     if (Date.now() < iaLiberadaEm) {
       return reply(
         'Aguarde ' +
-        Math.ceil(
-          (iaLiberadaEm - Date.now()) / 1000
-        ) +
+        Math.ceil((iaLiberadaEm - Date.now()) / 1000) +
         ' segundos antes de pedir outra resposta.'
       );
     }
@@ -1780,20 +1684,14 @@ export function createIntegrations({
           },
           body: JSON.stringify({
             systemInstruction: {
-              parts: [
-                {
-                  text:
-                    prompts[command] ||
-                    prompts.ia,
-                },
-              ],
+              parts: [{
+                text: prompts[command] || prompts.ia,
+              }],
             },
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: input }],
-              },
-            ],
+            contents: [{
+              role: 'user',
+              parts: [{ text: input }],
+            }],
             generationConfig: {
               maxOutputTokens: 800,
             },
@@ -1801,9 +1699,7 @@ export function createIntegrations({
         }
       );
 
-      const result = await response
-        .json()
-        .catch(() => ({}));
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         logger.warn(
@@ -1868,16 +1764,13 @@ export function createIntegrations({
         );
       }
 
-      const parts = Array.isArray(
-        candidate?.content?.parts
-      )
+      const parts = Array.isArray(candidate?.content?.parts)
         ? candidate.content.parts
         : [];
 
       const text = parts
         .filter(part =>
-          typeof part.text === 'string' &&
-          !part.thought
+          typeof part.text === 'string' && !part.thought
         )
         .map(part => part.text)
         .join('\n')
@@ -1926,36 +1819,27 @@ export function createIntegrations({
     let line = '';
 
     for (const word of words) {
-      if (
-        line &&
-        line.length + word.length > 18
-      ) {
+      if (line && line.length + word.length > 18) {
         rows.push(line);
         line = '';
       }
 
-      line +=
-        (line ? ' ' : '') +
-        word.slice(0, 20);
+      line += (line ? ' ' : '') + word.slice(0, 20);
     }
 
     if (line) rows.push(line);
 
-    const accent =
-      palette[(hash + 3) % palette.length];
-
+    const accent = palette[(hash + 3) % palette.length];
     const bars = 2 + (hash % 6);
 
     const decoration = [
       'drawbox=x=16:y=16:w=480:h=480:color=0x' +
       accent + ':t=6',
 
-      ...Array.from(
-        { length: bars },
-        (_, n) =>
-          'drawbox=x=' + (42 + n * 49) +
-          ':y=' + (72 + ((hash >>> (n + 1)) % 18)) +
-          ':w=35:h=5:color=white@0.5:t=fill'
+      ...Array.from({ length: bars }, (_, n) =>
+        'drawbox=x=' + (42 + n * 49) +
+        ':y=' + (72 + ((hash >>> (n + 1)) % 18)) +
+        ':w=35:h=5:color=white@0.5:t=fill'
       ),
 
       'drawbox=x=42:y=420:w=' +
@@ -1967,8 +1851,7 @@ export function createIntegrations({
       text:
         'ZUMY · RANKING\n\n' +
         rows.join('\n') +
-        '\n\nTOP 1 · ' +
-        score + '%',
+        '\n\nTOP 1 · ' + score + '%',
       toImage: true,
       color: palette[hash % palette.length],
       decoration,
@@ -1978,13 +1861,7 @@ export function createIntegrations({
   return Object.fromEntries([
     ['rankCard', rankCard],
 
-    ...[
-      'fig',
-      'sticker',
-      'toimg',
-      'ttp',
-      'attp',
-    ].map(command => [
+    ...['fig', 'sticker', 'toimg', 'ttp', 'attp'].map(command => [
       command,
       context => media(context, command),
     ]),
@@ -1992,21 +1869,12 @@ export function createIntegrations({
     ['play', playAudio],
     ['p', playAudio],
 
-    ...[
-      'buscar',
-      'musica',
-      'letra',
-    ].map(command => [
+    ...['buscar', 'musica', 'letra'].map(command => [
       command,
       context => music(context, command),
     ]),
 
-    ...[
-      'ia',
-      'perguntar',
-      'resumir',
-      'traduzir',
-    ].map(command => [
+    ...['ia', 'perguntar', 'resumir', 'traduzir'].map(command => [
       command,
       context => ai(context, command),
     ]),
