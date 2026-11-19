@@ -1,0 +1,24 @@
+ZUMY V12 — PLAY DO YOUTUBE
+
+1. Extraia o ZIP. Envie integracoes.js e Dockerfile à raiz da branch main
+   do seu repositório. Use exatamente esses nomes, sem .txt.
+2. No Render, serviço do bot, abra Environment > Secret Files e adicione
+   youtube-cookies.txt. O conteúdo deve ser a exportação Netscape atual
+   da sua conta do YouTube. Mantenha esse arquivo fora do GitHub.
+3. Em Environment Variables, configure:
+   YOUTUBE_COOKIES_FILE=/etc/secrets/youtube-cookies.txt
+4. Publique o último commit. Teste !play NOME ou !play yt NOME com conteúdo
+   que você pode baixar e compartilhar.
+5. !play lista e as faixas locais continuam funcionando. Para busca no
+   Archive, use !play archive NOME ou !play artista NOME. Para usar o
+   Jamendo explicitamente, use !play jamendo NOME.
+
+O download usa qualidade VBR 0, até 12 minutos, e limita o MP3 enviado a
+8 MB. Duas operações podem rodar por vez, uma por grupo. O arquivo privado
+de cookies é copiado para a pasta temporária, pois o yt-dlp pode atualizá-lo.
+A cópia é removida ao terminar.
+
+A conexão real com o YouTube depende da aceitação do servidor e da validade
+da sessão. Cookies não garantem que o YouTube aceitará o acesso do Render.
+O pacote foi verificado por sintaxe e com o processo yt-dlp simulado.
+O build Docker e o download real precisam ser confirmados no Render.
