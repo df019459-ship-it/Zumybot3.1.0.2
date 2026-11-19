@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, stat, writeFile, copyFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -381,81 +381,11 @@ export function createIntegrations({ downloadMedia, logger = console, env = proc
     }
   }
 
-  const youtubeActive = new Set();
-
-  async function playYoutube({ arg, reply, send, jid }) {
-    if (!arg.trim() || arg.length > 150) return reply('Use !play NOME DA MÚSICA, com até 150 caracteres.');
-    if (youtubeActive.has(jid) || youtubeActive.size >= 2) return reply('Há downloads em andamento. Tente novamente em instantes.');
-    youtubeActive.add(jid);
-    let folder;
-    try {
-      folder = await mkdtemp(join(tmpdir(), 'zumy-youtube-'));
-      const common = ['--ignore-config', '--no-playlist', '--js-runtimes', 'node',
-        '--no-warnings', '--socket-timeout', '15', '--retries', '1', '--fragment-retries', '1'];
-      const cookiePath = env.YOUTUBE_COOKIES_FILE?.trim();
-      if (cookiePath) {
-        try {
-          const info = await stat(cookiePath);
-          if (!info.isFile() || info.size > 1024 * 1024) throw Error('Formato');
-          const header = (await readFile(cookiePath, 'utf8')).split(/\r?\n/)[0];
-          if (!/^# (?:Netscape HTTP Cookie File|HTTP Cookie File)/.test(header)) throw Error('Formato');
-          const privateCopy = join(folder, 'cookies.txt');
-          await copyFile(cookiePath, privateCopy);
-          common.push('--cookies', privateCopy);
-        } catch {
-          return await reply('Confira YOUTUBE_COOKIES_FILE e o arquivo Netscape nos Secret Files do Render.');
-        }
-      }
-      let query = 'ytsearch1:' + arg;
-      if (/^https?:\/\//i.test(arg)) {
-        const url = new URL(arg);
-        if (url.protocol !== 'https:' || !['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be'].includes(url.hostname) ||
-            url.username || url.password || url.port) return await reply('Use um link HTTPS do YouTube ou o nome da música.');
-        query = url.href;
-      }
-      const run = (args, timeout) => ffmpeg('yt-dlp', [...common, ...args], {
-        timeout, killSignal: 'SIGKILL', maxBuffer: 4 * 1024 * 1024,
-      });
-      await reply('🔎 Buscando no YouTube…');
-      const { stdout } = await run(['--skip-download', '--dump-single-json', '--', query], 35000);
-      const result = JSON.parse(stdout);
-      const video = result.entries?.find(item => item?.id) || result;
-      if (!/^[A-Za-z0-9_-]{11}$/.test(video?.id || '')) return await reply('Não encontrei esse vídeo.');
-      if (video.is_live || !Number.isFinite(video.duration) || video.duration <= 0 || video.duration > 720) {
-        return await reply('Escolha uma gravação de até 12 minutos.');
-      }
-      const url = 'https://www.youtube.com/watch?v=' + video.id;
-      await run(['--extract-audio', '--audio-format', 'mp3', '--audio-quality', '0',
-        '--format', 'bestaudio/best', '--max-filesize', '24M', '--concurrent-fragments', '1',
-        '--output', join(folder, 'musica.%(ext)s'), '--', url], 120000);
-      const path = join(folder, 'musica.mp3');
-      const { size } = await stat(path);
-      if (!size || size > 8 * 1024 * 1024) return await reply('O MP3 passou de 8 MB ou ficou vazio. Escolha uma faixa mais curta.');
-      const audio = await readFile(path);
-      await reply('🎵 ' + String(video.title || 'Produção DJ TK').slice(0, 150) +
-        '\n👤 ' + String(video.artist || video.uploader || 'Artista não informado').slice(0, 100) + '\n' + url);
-      return await send({ audio, mimetype: 'audio/mpeg', ptt: false });
-    } catch (error) {
-      // O stderr do downloader pode conter dados de sessão. Registre apenas o estado.
-      logger.warn({ code: typeof error.code === 'number' ? error.code : undefined, signal: error.signal, name: error.name }, 'Falha no play do YouTube');
-      if (error.code === 'ENOENT') return await reply('Não encontrei o yt-dlp ou a saída MP3. Confira o build e o Dockerfile.');
-      return await reply('O YouTube não concluiu o download. A sessão pode ter expirado ou o acesso do servidor pode ter sido recusado.');
-    } finally {
-      try { if (folder) await rm(folder, { recursive: true, force: true }); }
-      catch { logger.warn('Não foi possível remover um diretório temporário do play'); }
-      youtubeActive.delete(jid);
-    }
-  }
-
-  async function playAudio({ arg, reply, send, jid }) {
+  async function playAudio({ arg, reply, send }) {
     if (!arg || trackName(arg) === 'lista') {
       return reply('🎵 Áudios cadastrados\n' + localTracks.map(([, [name]]) => '!play ' + name).join('\n') +
         '\n\nCatálogo externo: !play artista NOME ou !play archive MÚSICA | ARTISTA');
     }
-    if (/^(yt|youtube)(?:\s|$)/i.test(arg)) {
-      return playYoutube({ arg: arg.replace(/^(yt|youtube)\s*/i, ''), reply, send, jid });
-    }
-    if (/^jamendo\s+/i.test(arg)) return playByName({ arg: arg.replace(/^jamendo\s+/i, ''), reply, send });
     const name = trackName(arg);
     const localFile = fileByName.get(name);
     if (localFile) return playLocal({ reply, send }, localFile);
@@ -467,16 +397,10 @@ export function createIntegrations({ downloadMedia, logger = console, env = proc
     if (/^archive(?:\s|$)/i.test(arg)) return playArchive({ arg: arg.slice(7), reply, send });
     const item = archiveLink(arg);
     if (item) return playArchive({ arg, reply, send }, item);
-    if (/^https:\/\//i.test(arg)) {
-      const url = new URL(arg);
-      if (['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be'].includes(url.hostname)) {
-        return playYoutube({ arg, reply, send, jid });
-      }
-    }
     const origin = audioOrigin(arg);
     if (!origin) {
       if (/^\w+:\/\//.test(arg)) return reply('Use um link HTTPS direto de um MP3, M4A ou MP4.');
-      return playYoutube({ arg, reply, send, jid });
+      return playByName({ arg, reply, send });
     }
     const approvedOrigin = audioOrigin(env.MUSIC_AUDIO_ORIGIN);
     if (!approvedOrigin) return reply('O dono precisa configurar MUSIC_AUDIO_ORIGIN no Render com o endereço do servidor de áudio.');
