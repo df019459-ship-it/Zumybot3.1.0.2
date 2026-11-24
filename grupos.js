@@ -1,11 +1,10 @@
 import { randomInt } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { botName, categoryCommands, menu as menuOriginal, normalizeCommand, ownerName, ownerNumber, prefix, sections } from './menu.js';
+import { botName, categoryCommands, menu, normalizeCommand, ownerName, ownerNumber, prefix, sections } from './menu.js';
 import { createGames } from './jogos.js';
 import { createIntegrations } from './integracoes.js';
 import { chamouZumy, criarVoz, estilosVoz } from './voz.js';
-const menu = (...args) => menuOriginal(...args);
 import { createGroupSettings, extraAdmin, createCommunity, communityAdmin } from './config-grupo.js';
 
 const pick = values => values[randomInt(values.length)];
@@ -125,6 +124,7 @@ function describeParticipantResult(result, reply) {
   return reply('O WhatsApp não confirmou a ação' + (status ? ' (' + status + ')' : '') + '.');
 }
 
+const comandoFalado = command => 'exclamação ' + (command || 'menu');
 
 function groupActions() {
   const participantAction = action => async ({ sock, jid, target, targetMember, settings, update, reply }) => {
@@ -135,7 +135,7 @@ function groupActions() {
     const legenda = (settings.bemvindo2 ? settings.goodbyeText2 || settings.goodbyeText
       : settings.goodbyeText || settings.goodbyeText2) || '{usuario} foi removido do grupo.';
     const nome = targetMember?.name || targetMember?.notify || 'O participante';
-    return reply('🚫 Participante removido.\n' + legenda.replaceAll('{usuario}', nome));
+    return reply('Participante removido.', { fala: legenda.replaceAll('{usuario}', nome) });
   };
   const setGroup = mode => async ({ sock, jid, arg, reply }) => {
     const input = arg.toLowerCase();
@@ -224,7 +224,7 @@ function ownerActions(restart) {
     reiniciar: async ({ arg, reply }) => {
       if (!/^(?:bot\s+)?confirmar$/i.test(arg.trim())) return reply('Para reiniciar o ZUMY, envie !reiniciar bot confirmar.');
       if (typeof restart !== 'function') return reply('O servidor ainda não forneceu a função de reinício ao bot.');
-      await reply('Reiniciando o ZUMY…');
+      await reply('Reiniciando o ZUMY…', { aguardarVoz: true });
       return restart();
     },
     bloquear: block('block'),
@@ -348,14 +348,13 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
   const lastCommand = new Map();
   const games = createGames();
   const integrations = createIntegrations({ downloadMedia, logger, env });
-  // Voz Gemini, com fallback em texto.
-  const responderVoz = criarVoz({ env, logger, gerar: generateVoice, perguntar: arg => integrations.ia({ arg, reply: texto => texto }) });
-
+  const responderVoz = criarVoz({
+    env, logger, gerar: generateVoice,
+    perguntar: arg => integrations.ia({ arg, reply: resposta => resposta }, 'ia'),
+  });
 
   const declared = new Set(sections.flatMap(section => section.commands
     .filter(command => !command.startsWith('zoom ')).map(command => command.split(' ')[0])));
-  declared.add('vozzumy');
-  declared.add('testarvoz');
   const groupSettings = createGroupSettings({ config, integrations, known: declared, logger });
   const community = createCommunity({ config, integrations, env, logger, downloadMedia, responderVoz });
   let nextSweep = 0;
@@ -403,13 +402,11 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
     configurar: ({ reply, settings, ownerLabel }) => reply(menu('configuracao', { nickname: settings.nickname, ownerLabel })),
     vozzumy: ({ arg, settings, update, reply }) => {
       const estilo = arg.toLowerCase();
-      if (['0', 'off'].includes(estilo)) {
-        update({ voiceEnabled: false });
-        return reply('Voz desativada neste grupo.');
-      }
-      if (!Object.hasOwn(estilosVoz, estilo)) return reply('Use !vozzumy anime, doce, calma ou brava. Para desligar: !vozzumy 0.');
-      update({ voiceStyle: estilo, voiceEnabled: true });
-      return reply('Voz feminina configurada: ' + estilo + '. Teste com !testarvoz.');
+      const opcoes = Object.keys(estilosVoz).join(', ');
+      if (!estilo) return reply('Voz da Zumy: ' + (settings.voiceStyle || 'anime') + '. Opções: ' + opcoes + '. Exemplo: !vozzumy doce');
+      if (!Object.hasOwn(estilosVoz, estilo)) return reply('Voz inválida. Use !vozzumy anime, !vozzumy doce, !vozzumy calma ou !vozzumy grave.');
+      update({ voiceStyle: estilo });
+      return reply('Voz da Zumy alterada para ' + estilo + '. Escreva “Zumy, tudo bem?” para testar.');
     },
     testarvoz: context => responderVoz.testar(context.voz),
     meuid: async ({ sock, senderIds, actor, reply }) => {
@@ -485,7 +482,7 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
     if (!Object.hasOwn(handlers, name)) throw new Error('Comando sem implementação: /' + name);
   }
 
-  async function moderate({ sock, msg, jid, actor, text, content, settings, isAdmin, botAdmin, mentions, reply, update }) {
+  async function moderate({ sock, msg, jid, actor, text, content, settings, isAdmin, botAdmin, mentions, reply }) {
     if (isAdmin || msg.key.fromMe) return false;
     let reason = groupSettings.mediaReason(settings, content, text);
     if (settings.antilink && /\bchat\.whatsapp\.com\/[\w-]+/i.test(text)) reason = 'link de convite';
@@ -565,14 +562,19 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
     const command = Object.hasOwn(aliases, rawCommand) ? aliases[rawCommand] : rawCommand;
     const arg = match?.[2]?.trim() || '';
     if (msg.key.fromMe && (outgoing.has(jid + ':' + msg.key.id) || pendingReplies.has(jid + ':' + text))) return;
-    const update = changes => config.save(jid, { ...config.get(jid), ...changes });
     let narrou = false;
-    const voz = {
-      jid, text, settings, update,
+    const falaAtiva = (usaPrefixo || Boolean(request)) && !['totag', 'testarvoz'].includes(command);
+    const update = changes => config.save(jid, { ...config.get(jid), ...changes });
+    const voz = { jid, text, settings, update,
       send: (message, options) => send(message, { ...options, narrar: false }),
-      reply: texto => send({ text: texto }, { narrar: false }),
+      reply: text => send({ text }, { narrar: false }),
     };
-    const send = async (message, { citar = true, narrar = true } = {}) => {
+    const narrarUmaVez = texto => {
+      if (!falaAtiva || narrou || !texto) return;
+      narrou = true;
+      return responderVoz.narrar(voz, texto);
+    };
+    const send = async (message, { citar = true, narrar = true, fala, aguardarVoz = false } = {}) => {
       const outgoingText = message.text?.trim();
       const marker = outgoingText && jid + ':' + outgoingText;
       if (marker) pendingReplies.add(marker);
@@ -582,17 +584,21 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
           if (outgoing.size >= 512) outgoing.delete(outgoing.keys().next().value);
           outgoing.set(jid + ':' + sent.key.id, true);
         }
-        if (narrar && !narrou && settings.voiceEnabled !== false && env.BOT_VOICE_AUTO !== '0' &&
-            !['testarvoz', 'vozzumy', 'play', 'p', 'totag', 'marcar', 'hidetag', 'broadcast'].includes(command)) {
+        if (narrar) {
           const texto = message.text || message.caption;
-          if (typeof texto === 'string' && texto.trim()) {
-            narrou = true;
-            const limpo = texto.replace(/https?:\/\/\S+/g, 'link na mensagem').replace(/@\d+/g, 'participante')
-              .replace(/[^\p{L}\p{N}\p{P}\p{Z}\r\n]/gu, '').trim();
-            const fala = limpo.length > 420 || texto.includes('┎┅')
-              ? 'A resposta completa está na mensagem do grupo.' : limpo;
-            void responderVoz.narrar({ ...voz, settings: config.get(jid) }, fala).catch(() => {});
-          }
+          const tarefaVoz = fala && narrarUmaVez(fala);
+          if (!fala && texto) {
+            const limpo = texto.replace(/https?:\/\/\S+/g, 'link na mensagem')
+              .replace(/@\d+/g, 'participante').replace(/[^\p{L}\p{N}\p{P}\p{Z}\r\n]/gu, '').trim();
+            const menuLongo = texto.includes('┎┅') || limpo.length > 420;
+            const tarefa = narrarUmaVez(menuLongo ? 'A resposta completa de ' + comandoFalado(command) + ' está na mensagem.' : limpo);
+            if (aguardarVoz) await tarefa;
+          } else if (message.audio) narrarUmaVez('Áudio enviado.');
+          else if (message.video) narrarUmaVez('Vídeo enviado.');
+          else if (message.sticker) narrarUmaVez('Figurinha enviada.');
+          else if (message.image) narrarUmaVez('Imagem enviada.');
+          else if (message.poll) narrarUmaVez('Enquete criada: ' + message.poll.name);
+          if (aguardarVoz && tarefaVoz) await tarefaVoz;
         }
         return sent;
       } finally {
@@ -655,7 +661,7 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
       bot.isAdmin === true || bot.isSuperAdmin === true : undefined;
     if ((settings.antiporno || settings.castigos?.[actor]) &&
         await community.restricted({ sock, msg, jid, actor, content, text, isAdmin, botAdmin, settings })) return;
-    if (activeSecurity && await moderate({ sock, msg, jid, actor, text, content, settings, isAdmin, botAdmin, mentions, reply, update })) return;
+    if (activeSecurity && await moderate({ sock, msg, jid, actor, text, content, settings, isAdmin, botAdmin, mentions, reply })) return;
     const timestamp = Number(msg.messageTimestamp);
     if (settings.communitySync && !msg.key.fromMe && actor && (!timestamp || Date.now() - timestamp * 1000 < 120000) &&
         (text || content.imageMessage || content.videoMessage || content.audioMessage || content.stickerMessage || content.documentMessage)) {
@@ -665,23 +671,20 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
     if (!command && settings.atodos && isAdmin && /^@all(?:\s|$)/i.test(text)) {
       return community.themeMark(jid, 'all', members, text.slice(4).trim() || 'Atenção, pessoal!', send);
     }
-    if (chamadaVoz && settings.autorepro !== false) {
-      if (settings.soadm && !isAdmin) return;
-      return responderVoz.conversar(voz);
-    }
+    if (chamadaVoz && settings.autorepro !== false) return responderVoz.conversar(voz);
     if (!command && !msg.key.fromMe && settings.autodownload && /^https:\/\/\S+$/i.test(text)) {
       const url = URL.canParse(text) ? new URL(text) : null;
       if (url && ((url.origin === 'https://archive.org' && url.pathname.startsWith('/details/')) ||
           (/\.(?:mp3|m4a|mp4)$/i.test(url.pathname) && env.MUSIC_AUDIO_ORIGIN &&
             url.origin === env.MUSIC_AUDIO_ORIGIN.replace(/\/$/, '')))) {
-        return integrations.play({ arg: text, reply, send, jid });
+        return integrations.play({ arg: text, reply, send });
       }
     }
     if (usaPrefixo && !knownCommand) {
       const exemplos = {
         configurar: '!configurar', play: '!play lista', fig: '!fig (responda a uma foto)',
         ia: '!ia Diga olá ao grupo', totag: '!totag Atenção, pessoal!', ban: '!ban @participante',
-        msgtemp: '!msgtemp 24h', castigo: '!castigo 24h @participante', rankativos: '!rankativos', perfil: '!perfil 2', reiniciar: '!reiniciar',
+        msgtemp: '!msgtemp 24h', castigo: '!castigo 24h @participante', rankativos: '!rankativos', perfil: '!perfil 2', vozzumy: '!vozzumy anime', reiniciar: '!reiniciar',
       };
       const candidato = Object.keys(exemplos).find(nome => command.length >= 2 && nome.startsWith(command));
       const nome = match?.[1]?.slice(0, 40);
@@ -759,6 +762,7 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
     if (command !== 'broadcast') {
       try {
         const result = await handlers[command](context);
+        narrarUmaVez('Comando ' + comandoFalado(command) + ' concluído.');
         return result;
       } catch (error) {
         const status = error?.output?.statusCode ?? error?.data?.code;
@@ -776,35 +780,7 @@ export function createGroupHandler({ folder, logger = console, downloadMedia, re
       broadcasting = false;
     }
   };
-  async function boasVindasComFoto(sock, event) {
-    const { id: jid, action, participants = [] } = event;
-    if (action !== 'add') return groupSettings.greet(sock, event);
-    const settings = config.get(jid);
-    if (!settings.bemvindo && !settings.bemvindo2) return;
-    const botIds = [sock.user?.id, sock.user?.lid].filter(Boolean).map(normalizeJid);
-    for (const participant of participants) {
-      const id = typeof participant === 'string' ? participant : participant?.id;
-      if (!id || botIds.includes(normalizeJid(id))) continue;
-      const second = settings.bemvindo2;
-      const label = (second ? settings.welcomeText2 : settings.welcomeText) || 'Bem-vindo, {usuario}!';
-      const tag = '@' + normalizeJid(id).split('@')[0];
-      const text = '👋 ' + (settings.nickname || botName) + ' · ' + label.replaceAll('{usuario}', tag);
-      const mentions = label.includes('{usuario}') ? [id] : [];
-      let photo;
-      if (typeof sock.profilePictureUrl === 'function') {
-        try { photo = await sock.profilePictureUrl(id, 'image', 5000); }
-        catch { /* A privacidade pode impedir a foto. */ }
-      }
-      if (photo) {
-        try {
-          await sock.sendMessage(jid, { image: { url: photo }, caption: text, mentions });
-          continue;
-        } catch { logger.warn('Não consegui enviar a foto do participante nas boas-vindas'); }
-      }
-      await groupSettings.greet(sock, { ...event, participants: [participant] });
-    }
-  }
-  handleGroup.onParticipantsUpdate = (sock, event) => community.entrance(sock, event, boasVindasComFoto);
+  handleGroup.onParticipantsUpdate = (sock, event) => community.entrance(sock, event, groupSettings.greet);
   handleGroup.tick = community.tick;
   handleGroup.groupSettings = jid => config.get(jid);
   handleGroup.saveGroupSettings = (jid, values) => config.save(jid, { ...config.get(jid), ...values });

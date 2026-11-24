@@ -1,32 +1,24 @@
-ZUMY — VOZ FEMININA COM GEMINI
+ZUMY V12 — PLAY DO YOUTUBE
 
-Arquivos a substituir no repositório:
-- voz.js
-- grupos.js
+1. Extraia o ZIP. Envie integracoes.js e Dockerfile à raiz da branch main
+   do seu repositório. Use exatamente esses nomes, sem .txt.
+2. No Render, serviço do bot, abra Environment > Secret Files e adicione
+   youtube-cookies.txt. O conteúdo deve ser a exportação Netscape atual
+   da sua conta do YouTube. Mantenha esse arquivo fora do GitHub.
+3. Em Environment Variables, configure:
+   YOUTUBE_COOKIES_FILE=/etc/secrets/youtube-cookies.txt
+4. Publique o último commit. Teste !play NOME ou !play yt NOME com conteúdo
+   que você pode baixar e compartilhar.
+5. !play lista e as faixas locais continuam funcionando. Para busca no
+   Archive, use !play archive NOME ou !play artista NOME. Para usar o
+   Jamendo explicitamente, use !play jamendo NOME.
 
-Este grupos.js parte da última versão enviada nesta conversa, preservando foto nas boas-vindas e demais comandos. Se você o alterou depois, revise as diferenças antes de substituir.
-Não substitua integracoes.js, config-grupo.js ou menu.js por versões antigas.
+O download usa qualidade VBR 0, até 12 minutos, e limita o MP3 enviado a
+8 MB. Duas operações podem rodar por vez, uma por grupo. O arquivo privado
+de cookies é copiado para a pasta temporária, pois o yt-dlp pode atualizá-lo.
+A cópia é removida ao terminar.
 
-Variáveis privadas na Discloud:
-GEMINI_API_KEY = a chave Google que você já utiliza
-GEMINI_TTS_MODEL = gemini-3.8-flash-lite-tts
-BOT_VOICE_AUTO = 1
-
-No discloud.config, mantenha APT=tools, ffmpeg.
-Nenhuma chave deve ser publicada no GitHub.
-
-Após atualizar o app, um administrador pode usar:
-!vozzumy anime
-!vozzumy doce
-!vozzumy calma
-!vozzumy brava
-!vozzumy 0 (desliga no grupo)
-!testarvoz
-
-Para conversar: Zumy, tudo bem?
-Os comandos respondem em texto e narram a primeira resposta curta. Menus longos recebem um resumo falado. Música e marcações coletivas não geram narração extra.
-Se o áudio falhar, o texto continua disponível. O comando !testarvoz exibe o diagnóstico.
-Anime é uma interpretação original de voz feminina adulta, não a cópia de uma personagem.
-A chave precisa ter acesso ao modelo de voz. A faixa gratuita tem limites próprios e não garante geração ilimitada.
-
-Validação: sintaxe dos dois arquivos, respostas HTTP simuladas, conversão real de WAV para Ogg Opus, cache, fallback em texto e comandos no grupo. Sem chamada real à API privada.
+A conexão real com o YouTube depende da aceitação do servidor e da validade
+da sessão. Cookies não garantem que o YouTube aceitará o acesso do Render.
+O pacote foi verificado por sintaxe e com o processo yt-dlp simulado.
+O build Docker e o download real precisam ser confirmados no Render.
